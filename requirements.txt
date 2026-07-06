@@ -1,0 +1,23 @@
+# Зависимости triton-newt-reid-v4.
+# Проверенное окружение: Python 3.13 (работает на 3.11+), macOS (MPS) / Linux / Windows.
+# Установка:  pip install -r requirements.txt
+
+numpy>=1.26
+pandas>=2.0
+Pillow>=10.0
+opencv-python>=4.9          # SIFT + аффинная верификация (ядро re-ID, работает на CPU)
+torch>=2.2                  # сегментация BiRefNet (MPS / CUDA / CPU — выбирается автоматически)
+torchvision>=0.17
+timm>=1.0                   # backbone для BiRefNet (подтягивается через trust_remote_code)
+transformers>=4.45          # загрузка BiRefNet с HuggingFace Hub
+streamlit>=1.49             # демо-интерфейс (streamlit run backend/demo.py)
+scikit-learn>=1.4           # open-set: AUROC / порог Юдена
+scipy>=1.11                 # доверительные интервалы Уилсона / статистика
+tqdm
+
+# --- опционально (для демо не нужно) ---
+# fastapi>=0.110             # черновой REST-эндпоинт  (backend/app.py)
+# uvicorn>=0.29              #   запуск: uvicorn app:app --port 8000
+# kornia>=0.7                # эксперименты с обучаемыми матчерами (DISK / ALIKED)
+# faiss-cpu>=1.8             # ускорение поиска на больших каталогах
+# matplotlib>=3.8            # генерация рисунков для отчёта
