@@ -1,0 +1,77 @@
+{
+  "name": "triton-reid-core",
+  "version": "4.0-part7",
+  "status": "FROZEN + SEALED ВСКРЫТ 2026-07-02. Финальный held-out KPI взят (rolling R@1 0.79 >= 0.75). Ядро и результаты НЕ менять.",
+  "frozen_date": "2026-06-30",
+  "goal": "top-1 >= 0.75 при ПЕРЕПОИМКЕ особи (temporal re-id) по узору пятен брюшка",
+
+  "pipeline": {
+    "1_segmentation": "birefnet_label (segment/build_crops.py): BiRefNet matting тела -> кроп, нормализация масштаба по высоте маски (~440px в canvas 512x512), метка-номер маскируется (анти-утечка)",
+    "2_preprocess": "RGB -> gray -> CLAHE(clip=2.0, tile=8x8) [segment/preprocess.to_sift_gray, единый gallery=probe]",
+    "3_matcher": {"type": "sift", "nfeatures": 1500, "descriptor_match": "BFMatcher L2 + knn k=2", "lowe_ratio": 0.75},
+    "4_deform_verify": {"method": "affine", "impl": "cv2.estimateAffine2D (6-DOF, допускает анизотропное растяжение узора)", "ransac_thr": 5.0, "min_good": 4, "score": "число affine-inlier"},
+    "5_gallery": {"mode": "rolling", "aggregation": "max-pool по особи", "rule": "референсы = все кадры особей из сессий СТРОГО РАНЬШЕ probe (растущая база, без утечки времени)"}
+  },
+
+  "tuning": {
+    "grid": "nfeatures{1000,1500,2000} x CLAHE_clip{2.0,3.0} x affine_thr{4,5,6} на dev single-ref",
+    "best_config": [1000, 2.0, 6.0], "best_recall@1": 0.619,
+    "adopted_config": [1500, 2.0, 5.0],
+    "decision": "держим текущее ядро: best НЕ значим (McNemar p=0.508, CI перекрываются) -> защита от переобучения dev (n=97). CLAHE clip 3.0 стабильно хуже 2.0.",
+    "artifact": "artifacts/tune_dev.json"
+  },
+
+  "metrics_dev_TK_temporal": {
+    "protocol": "identity-disjoint split, gallery/probe разные сессии, sealed TK-test НЕ вскрыт",
+    "random_top1": 0.022,
+    "rolling_PROD": {"recall@1": 0.753, "ci95": [0.658, 0.828], "macro@1": 0.818, "recall@5": 0.856, "recall@10": 0.928, "frr@1": 0.247, "by_interval_r@1": {"1мес": 0.657, "2мес": 1.0}},
+    "single_ref_LOWER_BOUND": {"recall@1": 0.629, "macro@1": 0.648, "recall@5": 0.784, "recall@10": 0.887},
+    "open_set_DRYRUN": {"BAKS": 0.598, "BAUS": 1.0, "G": 0.773, "threshold": 9.0, "n_new": 5, "warn": "n_new=5 НЕДОМОЩНО — машинерия проверена, реальный open-set на sealed (Часть 11)"},
+    "kpi_framing_F5": "KPI >=0.75 оценивается в rolling-режиме (накапливаемый каталог); single-ref 0.629 — нижняя граница (единственный прежний снимок). Подаются РАЗДЕЛЬНО; rolling != one-shot.",
+    "by_interval_note_F14": "2-мес R@1 1.0 = 27/27 проб, Wilson-нижняя >=0.88 (малая выборка, не 'идеально')",
+    "artifact": "artifacts/eval_tk.json"
+  },
+
+  "baselines_frozen": {
+    "purpose": "очная ставка local (ядро) vs global-embedding на ТЕХ ЖЕ birefnet-кропах и протоколе; заморожено ДО sealed (анти-fishing), на test репортить ВСЕ методы",
+    "crop_input": "birefnet_label (crop=none), как у ядра; global берёт свой RGB+timm-transform (натуральный вход)",
+    "rolling_recall@1": {"core_sift_affine": 0.753, "megadescriptor_L384": 0.247, "dinov2_vitL": 0.165, "random": 0.022},
+    "single_ref_recall@1": {"core_sift_affine": 0.629, "megadescriptor_L384": 0.165, "dinov2_vitL": 0.082},
+    "mcnemar_core_vs_baseline_rolling@1": {"megadescriptor": {"b": 3, "c": 52, "p": 0.0}, "dinov2": {"b": 1, "c": 58, "p": 0.0}},
+    "verdict": "local-feature ядро бьёт global-embedding ~x3 (0.753 vs 0.247/0.165, McNemar p<0.001). MegaDescriptor (= стек 3.0) на ЛУЧШИХ birefnet-кропах = 0.247 -> провал 3.0 (0.188) обусловлен ПАРАДИГМОЙ global, не только кропами.",
+    "artifact": "artifacts/baselines_dev.json",
+    "frozen_for_sealed": ["core_sift_affine (rolling+single)", "megadescriptor_L384 global", "dinov2_vitL global"]
+  },
+
+  "generalization_check_untouched_cohorts": {
+    "note": "PW/LAB не запечатаны и не участвовали в выборе TK-ядра -> бесплатная проверка на переобучение. НЕ тюнились.",
+    "PW_ребристый_session1to2": {"recall@1": 1.0, "comment": "лёгкий протокол (интервал <=1мес, очень различимый ребристый узор); маржа top-1 vs 2nd ~x3-5; утечки кадров нет (gallery=сессия1, probe=сессия2). Подтверждает обобщение, НЕ temporal-стресс."},
+    "LAB_другой_вид_5сессий_до4мес": {"rolling_recall@1": 0.679, "macro@1": 0.671, "recall@5": 0.808, "single_recall@1": 0.128, "comment": "ДРУГОЙ вид (гладкий тритон); та же картина rolling>>single, x14 над random 0.048. Метод переносится; ниже TK из-за большего дрейфа/4мес."}
+  },
+
+  "rejected_with_evidence": {
+    "learned_DISK_LightGlue": "dev R@1 0.324 (n=68) vs SIFT 0.588 — НО урезанный 512kp (эталон 1500) и частичный 68/97 probe (таймаут); McNemar b8/c19 p=0.052 (на грани); x230 медленнее; оверлей = поза/силуэт (зап.№15)",
+    "learned_ALIKED_LightGlue": "НЕ оценён: self-match=0 (баг интеграции kornia 0.8) — числа нет",
+    "learned_verdict_status_F10": "ПРЕДВАРИТЕЛЬНОЕ отклонение класса learned: DISK (урезанный/частичный) не бьёт SIFT значимо и медленнее; ALIKED (SOTA-кандидат) без числа из-за бага. Направление устойчиво, не блокер (ядро заморожено)",
+    "deform_homography": "0.485 (8-DOF проективная штрафует растяжение узора)",
+    "deform_partial": "0.495", "deform_soft": "0.464",
+    "belly_erosion_crop": "0.289 (режет узор)", "CLAHE_clip_3.0": "стабильно хуже 2.0"
+  },
+
+  "comparison": {"v3.0_final_global_embedding": 0.188, "v4.0_dev_rolling": 0.753, "v4.0_SEALED_rolling": 0.790, "uplift": "x4.2 над 3.0 (sealed held-out)"},
+
+  "final_sealed_TEST": {
+    "opened_date": "2026-07-02", "irreversible": "вскрыт РОВНО один раз; числа НЕ правятся/НЕ тюнятся",
+    "n_probe_known": 100, "random_top1": 0.02,
+    "core_rolling": {"recall@1": 0.79, "ci95": [0.70, 0.858], "macro@1": 0.87, "recall@5": 0.92, "recall@10": 0.93, "frr@1": 0.21, "by_interval_r@1": {"1мес": 0.70, "2мес": 1.0, "3мес": 1.0}},
+    "core_single_ref_recall@1": 0.70,
+    "baselines_rolling_recall@1": {"megadescriptor_L384": 0.30, "dinov2_vitL": 0.17},
+    "mcnemar_core_vs_baseline": {"megadescriptor": {"b": 3, "c": 52, "p": 0.0}, "dinov2": {"b": 0, "c": 62, "p": 0.0}},
+    "open_set_17new": {"BAKS": 0.67, "BAUS": 1.0, "FAR": 0.0, "G": 0.819, "note": "n_new=17 модест"},
+    "goal": 0.75, "goal_reached": true,
+    "verdict": "ЦЕЛЬ top-1>=0.75 ВЗЯТА на held-out (rolling 0.79 [0.70-0.86]); single-ref 0.70. local >> global подтверждён на ТЕСТЕ (0.79 vs Mega 0.30 / DINOv2 0.17, McNemar p<0.001). test ~= dev (переобучения нет). x4.2 над 3.0 (0.188).",
+    "artifact": "artifacts/final_sealed_test.json"
+  },
+  "reuse_modules": ["segment/build_crops.py", "core/matchers.py:SiftMatcher", "core/deform.py:verify", "core/eval_core.py", "core/metrics.py", "registry/sealed.py:assert_unsealed"],
+  "next_step": "ЗАВЕРШЕНО: sealed вскрыт (2026-07-02), KPI взят (rolling 0.79). Осталось для ВКР: интерпретируемость (Часть 9, SIFT-оверлеи), текст диплома."
+}

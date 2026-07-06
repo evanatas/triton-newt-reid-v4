@@ -1,0 +1,77 @@
+{
+  "protocol": "single-ref dev (как ab_matchers)",
+  "deform": "affine",
+  "sift_affine_ref": {
+    "recall@1_pool": 0.588,
+    "artifact": 0.588
+  },
+  "matchers": {
+    "disk": {
+      "n": 68,
+      "recall@1": {
+        "value": 0.324,
+        "ci": [
+          0.22,
+          0.44
+        ]
+      },
+      "recall@5": {
+        "value": 0.441,
+        "ci": [
+          0.33,
+          0.56
+        ]
+      },
+      "recall@10": {
+        "value": 0.544,
+        "ci": [
+          0.43,
+          0.66
+        ]
+      },
+      "sec": 3321.1,
+      "ms_per_pair": 495.0,
+      "device": "mps",
+      "topk": 512,
+      "overlays": [
+        {
+          "kind": "SAME",
+          "gallery": "TK-004",
+          "probe": "TK-004",
+          "matched": 110,
+          "affine_inliers": 34,
+          "file": "learned_overlay_disk_SAME_TK-004_vs_TK-004.jpg"
+        },
+        {
+          "kind": "SAME",
+          "gallery": "TK-007",
+          "probe": "TK-007",
+          "matched": 30,
+          "affine_inliers": 10,
+          "file": "learned_overlay_disk_SAME_TK-007_vs_TK-007.jpg"
+        },
+        {
+          "kind": "CROSS",
+          "gallery": "TK-004",
+          "probe": "TK-007",
+          "matched": 90,
+          "affine_inliers": 15,
+          "file": "learned_overlay_disk_CROSS_TK-004_vs_TK-007.jpg"
+        }
+      ],
+      "mcnemar_vs_sift_affine@1": {
+        "b": 8,
+        "c": 19,
+        "p": 0.0522
+      }
+    },
+    "aliked": {
+      "broken": "self-match=0: LightGlue не распознаёт дескрипторы (kornia 0.8 ALIKED-integration)",
+      "self_match": 0
+    }
+  },
+  "verdict": {
+    "decision": "SIFT+affine+rolling остаётся ядром",
+    "rationale": "Лучший learned (disk) R@1 0.324 vs SIFT 0.588, McNemar p=0.052. Не бьёт значимо → SIFT проще/быстрее/rotation-invariant. learned отклонён С ЧИСЛАМИ."
+  }
+}

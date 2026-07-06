@@ -1,0 +1,72 @@
+{
+  "FINAL_KPI_sealed_test": true,
+  "opened_date": "2026-07-02",
+  "goal": 0.75,
+  "v3.0_final": 0.188,
+  "n_probe_known": 100,
+  "random_top1": 0.02,
+  "core_rolling": {
+    "recall@1": 0.79,
+    "ci95": [
+      0.79,
+      0.7,
+      0.858
+    ],
+    "macro@1": 0.87,
+    "recall@5": 0.92,
+    "recall@10": 0.93,
+    "frr@1": 0.21,
+    "by_interval": {
+      "1мес": {
+        "r@1": 0.7,
+        "r@5": 0.886,
+        "r@10": 0.9
+      },
+      "2мес": {
+        "r@1": 1.0,
+        "r@5": 1.0,
+        "r@10": 1.0
+      },
+      "3мес": {
+        "r@1": 1.0,
+        "r@5": 1.0,
+        "r@10": 1.0
+      }
+    }
+  },
+  "core_single_recall@1": 0.7,
+  "baselines_rolling_recall@1": {
+    "megadescriptor": 0.3,
+    "dinov2": 0.17
+  },
+  "mcnemar_core_vs_baseline_rolling": {
+    "megadescriptor": {
+      "b": 3,
+      "c": 52,
+      "p": 0.0
+    },
+    "dinov2": {
+      "b": 0,
+      "c": 62,
+      "p": 0.0
+    }
+  },
+  "open_set_test": {
+    "threshold": 9.0,
+    "TAR": 0.67,
+    "FAR": 0.0,
+    "FRR": 0.33,
+    "BAKS": 0.67,
+    "BAUS": 1.0,
+    "G": 0.819,
+    "n_known": 100,
+    "n_new": 17,
+    "WARN": "n_new=17 — недомощно, dry-run; реальный open-set на sealed (Часть 11)"
+  },
+  "goal_reached": true,
+  "kpi_framing_F5": "goal_reached судится по rolling micro (накапливаемый каталог); single-ref — нижняя граница (единственный прежний снимок). Подавать РАЗДЕЛЬНО; rolling != one-shot.",
+  "artifacts": [
+    "baselines_test.json",
+    "eval_tk_test.json"
+  ]
+}

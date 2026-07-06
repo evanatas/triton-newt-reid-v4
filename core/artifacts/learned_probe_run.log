@@ -1,0 +1,37 @@
+DIAГ learned на DEV: gallery 46 | probe 97 | test ЗАПЕЧАТАН
+SIFT+affine эталон на пуле: R@1 0.588 (артефакт ab_matchers = 0.588)
+
+=== disk ===
+Loaded LightGlue model
+  sanity self-match=512 ✓
+  extract: gallery 46 + probe 97 за 13s (kp≈512)
+  стоимость: 495 мс/пара (mps) → полная сетка 97×46 ≈ 2209s
+  оверлей SAME TK-004->TK-004: matched=110 inliers=34 -> learned_overlay_disk_SAME_TK-004_vs_TK-004.jpg
+  оверлей SAME TK-007->TK-007: matched=30 inliers=10 -> learned_overlay_disk_SAME_TK-007_vs_TK-007.jpg
+  оверлей CROSS TK-004->TK-007: matched=90 inliers=15 -> learned_overlay_disk_CROSS_TK-004_vs_TK-007.jpg
+  [disk] строка 1/97  ⏱17s
+  [disk] строка 6/97  ⏱106s
+  [disk] строка 11/97  ⏱202s
+  [disk] строка 16/97  ⏱289s
+  [disk] строка 21/97  ⏱406s
+  [disk] строка 26/97  ⏱514s
+  [disk] строка 31/97  ⏱635s
+  [disk] строка 36/97  ⏱775s
+  [disk] строка 41/97  ⏱899s
+  [disk] строка 46/97  ⏱1080s
+  [disk] строка 51/97  ⏱1387s
+  [disk] строка 56/97  ⏱1690s
+  [disk] строка 61/97  ⏱2100s
+  [disk] строка 66/97  ⏱2766s
+  [disk] ⏱ бюджет 3000s исчерпан на 68/97 — стоп с частичными
+  R@1 0.324[0.22, 0.44]  R@5 0.441  R@10 0.544  McNemar vs SIFT b=8 c=19 p=0.052
+
+=== aliked ===
+Loaded LightGlue model
+  ⚠ aliked: self-match=0 → интеграция сломана в kornia (НЕ вердикт о качестве), пропуск.
+
+================================================================
+ВЕРДИКТ: SIFT+affine+rolling остаётся ядром
+Лучший learned (disk) R@1 0.324 vs SIFT 0.588, McNemar p=0.052. Не бьёт значимо → SIFT проще/быстрее/rotation-invariant. learned отклонён С ЧИСЛАМИ.
+================================================================
+✅ artifacts/learned_probe_dev.json + learned_overlay_*.jpg (test не вскрывался)

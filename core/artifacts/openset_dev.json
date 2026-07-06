@@ -1,0 +1,56 @@
+{
+  "scope": "DEV-only калибровка open-set + tri-state; ядро и sealed заморожены (final_sealed_test.json).",
+  "within_cohort": {
+    "known_cohorts": [
+      "TK"
+    ],
+    "new_cohorts": [
+      "TK"
+    ],
+    "clean_within_TK": true,
+    "note": "open-set = within-TK (known и new — Карелина) → конфаунда ВИДА нет; сильнее 3.0, где new были другого вида (PW) и AUROC=0.446 был спутан составом."
+  },
+  "within_PW": "невычислим — у PW нет open-new особей (все open-new = TK); within-TK замещает и чище.",
+  "n_known": 97,
+  "n_new": 5,
+  "youden_dev": {
+    "threshold": 9.0,
+    "TAR": 0.598,
+    "FAR": 0.0,
+    "FRR": 0.402,
+    "BAKS": 0.598,
+    "BAUS": 1.0,
+    "G": 0.773
+  },
+  "tri_state": {
+    "tau_known_FAR0": 9.0,
+    "tau_new_youden": 9.0,
+    "review_zone": [
+      9.0,
+      9.0
+    ],
+    "review_degenerate_on_dev": true,
+    "known_probe_distribution": {
+      "known": 0.598,
+      "review": 0.0,
+      "new": 0.402
+    },
+    "new_probe_distribution": {
+      "known": 0.0,
+      "review": 0.0,
+      "new": 1.0
+    },
+    "legend": "score = affine-inliers top-1; known ≥ τ_known; new < τ_new; между → на проверку (human-in-the-loop).",
+    "operational_note": "на dev within-TK порог 9 inliers разделяет known/new ЧИСТО (FAR=0) → метрически review-зона вырождается. В демо «на проверку» задаётся в шкале КАЛИБРОВАННОЙ УВЕРЕННОСТИ (не сырые inliers) как human-in-the-loop подушка вокруг порога — см. backend/reid_service.verdict (conf_thr/review_thr). Две разные шкалы, не смешивать."
+  },
+  "sealed_frozen_reference": {
+    "note": "НЕ пересчитывается здесь — цитата из final_sealed_test.json (вскрыт 2026-07-02).",
+    "threshold": 9.0,
+    "BAKS": 0.67,
+    "BAUS": 1.0,
+    "FAR": 0.0,
+    "G": 0.819,
+    "n_new": 17
+  },
+  "WARN": "dev n мал → калибровочный индикатор, не финальная метрика; финальный open-set — sealed (within-TK, 17 new, заморожен). Порог Юдена dev сверить с core_config.open_set_DRYRUN.threshold."
+}

@@ -1,0 +1,37 @@
+✅ sha256 манифеста совпал (4ec579f68ddb…) | opened=False | n_sealed=155
+🔓 ВСКРЫВАЮ sealed TK-test (РОВНО ОДИН РАЗ)...
+
+  материализация 155 sealed test-кропов (тот же пайплайн birefnet_label)...
+Loading weights:   0%|          | 0/754 [00:00<?, ?it/s]Loading weights: 100%|██████████| 754/754 [00:00<00:00, 8461.44it/s]
+    50/155...
+    100/155...
+    150/155...
+  ✅ 155 test-кропов материализованы; манифест дополнен (626 всего)
+─ ядро + global-бейзлайны на TEST ─
+бейзлайны на TK test: refs 152 | probe known 100 | random top-1 0.020
+
+метод                     single R@1   rolling R@1   macro@1  McNemar(b,c,p) vs ядро
+core SIFT+affine               0.700         0.790     0.870  (эталон)
+megadescriptor                 0.120         0.300     0.323  b=3 c=52 p=0.000
+dinov2                         0.130         0.170     0.179  b=0 c=62 p=0.000
+
+✅ artifacts/baselines_test.json
+
+─ ядро: метрики честности + open-set(17 new) на TEST ─
+eval TK: refs 152 (51 особей) | probe known 100 | open_new 17 | random top-1 0.020
+  single   R@1 0.700 (macro 0.781) R@5 0.850 R@10 0.910
+  rolling  R@1 0.790 (macro 0.870) R@5 0.920 R@10 0.930
+  open-set(n_new=17, НЕДОМОЩНО): thr 9 BAKS 0.67 BAUS 1.0 G 0.819
+✅ artifacts/eval_tk_test.json
+
+  манифест помечен opened=True (2026-07-02)
+
+==================================================================
+ФИНАЛЬНЫЙ KPI — sealed TK-test (вскрыт РОВНО один раз):
+  ЯДРО rolling R@1 = 0.79 [0.79, 0.7, 0.858]  (macro 0.87, R@5 0.92, R@10 0.93, FRR@1 0.21)
+  ядро single-ref R@1 = 0.7  |  random 0.02
+  бейзлайны rolling R@1: {'megadescriptor': 0.3, 'dinov2': 0.17}
+  по интервалам R@1: {'1мес': {'r@1': 0.7, 'r@5': 0.886, 'r@10': 0.9}, '2мес': {'r@1': 1.0, 'r@5': 1.0, 'r@10': 1.0}, '3мес': {'r@1': 1.0, 'r@5': 1.0, 'r@10': 1.0}}
+  ЦЕЛЬ 0.75: ДОСТИГНУТА ✅  |  vs 3.0 финал 0.188
+==================================================================
+✅ artifacts/final_sealed_test.json — числа НЕ правим (финальный KPI)

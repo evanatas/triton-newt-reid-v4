@@ -1,0 +1,77 @@
+{
+  "same": [
+    {
+      "iid": "TK-004",
+      "interval_mo": 1,
+      "matched": 39,
+      "inliers": 23,
+      "file": "same_TK-004_1mo_23inl.jpg"
+    },
+    {
+      "iid": "TK-027",
+      "interval_mo": 1,
+      "matched": 43,
+      "inliers": 22,
+      "file": "same_TK-027_1mo_22inl.jpg"
+    },
+    {
+      "iid": "TK-065",
+      "interval_mo": 1,
+      "matched": 38,
+      "inliers": 21,
+      "file": "same_TK-065_1mo_21inl.jpg"
+    },
+    {
+      "iid": "TK-048",
+      "interval_mo": 1,
+      "matched": 31,
+      "inliers": 19,
+      "file": "same_TK-048_1mo_19inl.jpg"
+    },
+    {
+      "iid": "TK-072",
+      "interval_mo": 2,
+      "matched": 71,
+      "inliers": 23,
+      "file": "same_TK-072_2mo_23inl.jpg"
+    },
+    {
+      "iid": "TK-044",
+      "interval_mo": 2,
+      "matched": 34,
+      "inliers": 13,
+      "file": "same_TK-044_2mo_13inl.jpg"
+    },
+    {
+      "iid": "TK-010",
+      "interval_mo": 2,
+      "matched": 24,
+      "inliers": 12,
+      "file": "same_TK-010_2mo_12inl.jpg"
+    },
+    {
+      "iid": "TK-009",
+      "interval_mo": 1,
+      "matched": 29,
+      "inliers": 8,
+      "file": "same_TK-009_1mo_8inl.jpg"
+    }
+  ],
+  "cross": [
+    {
+      "gallery": "TK-004",
+      "probe": "TK-027",
+      "matched": 15,
+      "inliers": 4,
+      "file": "cross_TK-004_vs_TK-027_4inl.jpg"
+    },
+    {
+      "gallery": "TK-027",
+      "probe": "TK-004",
+      "matched": 6,
+      "inliers": 3,
+      "file": "cross_TK-027_vs_TK-004_3inl.jpg"
+    }
+  ],
+  "note": "зелёные=affine-inliers (ядро); серые=отклонённые Lowe-матчи; dev"
+}

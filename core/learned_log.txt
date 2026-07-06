@@ -1,0 +1,5 @@
+A/B матчеров на DEV: gallery 46 | probe 97 | test ЗАПЕЧАТАН
+
+конфиг                                   R@1     R@5   R@10  McNemar@1(b,c,p)
+sift_homography                  0.485[0.39-0.58]   0.670  0.804  (baseline)
+Loaded LightGlue model
