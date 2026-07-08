@@ -107,10 +107,12 @@ class ReIDService:
         return min(x * 100.0, 99.0)
 
     def _score_all(self, qfeat, exclude_frame=None) -> dict:
-        """individual_id -> (best_score, best_frame) max-pool по кадрам особи."""
+        """individual_id -> (best_score, best_frame) max-pool по кадрам особи.
+        exclude_frame — кадр ИЛИ множество кадров, исключаемых из каталога (напр. вся сессия запроса)."""
+        excl = {exclude_frame} if isinstance(exclude_frame, str) else set(exclude_frame or ())
         best = {}
         for _, r in self.cat.iterrows():
-            if exclude_frame and r.frame_id == exclude_frame:
+            if r.frame_id in excl:
                 continue
             s = D.verify(*self.sift.matched(qfeat, self.feats[r.frame_id]), DEFORM)
             if r.individual_id not in best or s > best[r.individual_id][0]:
@@ -176,12 +178,46 @@ class ReIDService:
         import hashlib
         return self.md5_to_frame.get(hashlib.md5(image_bytes).hexdigest())
 
+    def session_of(self, frame_id) -> set:
+        """Все кадры каталога той же особи и той же даты (съёмочной сессии), что frame_id.
+        Честный temporal-тест: исключив сессию запроса, система матчит только по снимкам ДРУГИХ месяцев,
+        а не по near-duplicate того же дня. frame_id=None → пусто; неизвестный кадр → сам кадр."""
+        if not frame_id:
+            return set()
+        row = self.cat[self.cat.frame_id == frame_id]
+        if row.empty:
+            return {frame_id}
+        iid, dt = row.iloc[0].individual_id, row.iloc[0].date
+        if pd.isna(dt) or not str(dt):
+            return {frame_id}
+        return set(self.cat[(self.cat.individual_id == iid) & (self.cat.date == dt)].frame_id)
+
+    def date_of(self, frame_id):
+        """Дата (YYYY-MM) кадра каталога или None."""
+        row = self.cat[self.cat.frame_id == frame_id]
+        return None if row.empty or pd.isna(row.iloc[0].date) else str(row.iloc[0].date)
+
+    def register(self, crop, feat, name: str = "") -> dict:
+        """Демо флоу учёта: добавить особь/кадр в каталог В ПАМЯТИ (без БД) — становится «известной» до конца
+        сессии. В проде здесь была бы запись кропа+фич+метаданных в БД (SQLite→PostgreSQL)."""
+        n = sum(1 for f in self.imgs if str(f).startswith("REG-")) + 1
+        fid, iid = f"REG-{n:03d}", (str(name).strip() or f"NEW-{n}")
+        self.imgs[fid] = crop
+        self.feats[fid] = feat
+        row = {c: "" for c in self.cat.columns}
+        row.update({"frame_id": fid, "individual_id": iid, "cohort": "TK",
+                    "split_role": "registered", "date": "рег.", "is_open_new": False})
+        self.cat = pd.concat([self.cat, pd.DataFrame([row])], ignore_index=True)
+        self.n_individuals = int(self.cat.individual_id.nunique())
+        return {"frame_id": fid, "individual_id": iid}
+
     def identify_crop(self, crop: np.ndarray, topk: int = 5, exclude_frame: str | None = None) -> dict:
         """Кроп (RGB) → топ-k особей каталога (max-pool score по особи) + оверлеи лучшего кадра."""
         fp = self.sift.extract(crop)
+        excl = {exclude_frame} if isinstance(exclude_frame, str) else set(exclude_frame or ())
         best = {}                                     # individual_id -> (score, frame_id)
         for _, r in self.cat.iterrows():
-            if exclude_frame and r.frame_id == exclude_frame:
+            if r.frame_id in excl:
                 continue
             pa, pb = self.sift.matched(fp, self.feats[r.frame_id])
             s = D.verify(pa, pb, DEFORM)

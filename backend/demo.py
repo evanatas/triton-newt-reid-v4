@@ -87,7 +87,8 @@ with tab_id:
             st.image(query_crop, caption=cap, width="stretch")
 
     if query_feat is not None:
-        ranked = svc.rank(query_feat, topk=topk, exclude_frame=exclude)
+        excl = svc.session_of(exclude)              # честный temporal-тест: исключаем ВСЮ сессию запроса
+        ranked = svc.rank(query_feat, topk=topk, exclude_frame=excl)
         v = svc.verdict(ranked)
         if v["verdict"] == "known":
             st.success(f"✅ Особь в базе: **{ranked[0]['individual_id']}** · уверенность **{v['confidence']:.0f}%** "
@@ -105,12 +106,38 @@ with tab_id:
                    "метрический open-set меряется отдельно в affine-inliers (порог 9, sealed BAKS 0.67 / G 0.819, "
                    "within-TK). Две шкалы не смешивать.")
         if exclude:
-            st.caption(f"ℹ️ Кадр запроса ({exclude}) исключён из каталога — матчинг по ДРУГИМ снимкам особи "
-                       "(честный held-out тест, без самосовпадения).")
+            st.caption(f"ℹ️ Честный temporal-тест: из каталога исключён не только сам кадр ({exclude}), но и "
+                       f"ВСЯ его съёмочная сессия ({len(excl)} кадров того же дня) — узнавание идёт по снимкам "
+                       f"ДРУГИХ месяцев, а не по почти-дубликату того же дня.")
 
-        if true_id:                                   # проба: открытая сверка top-1 с истиной
-            ok = ranked[0]["individual_id"] == true_id
-            (st.success if ok else st.error)(f"Истина: {true_id} → top-1 {'✓ верно' if ok else '✗ мимо'}")
+        rev = svc.cat[svc.cat.frame_id == exclude] if exclude else None
+        reveal_iid = true_id or (rev.iloc[0].individual_id if rev is not None and not rev.empty else None)
+        if reveal_iid:                                # открытая сверка top-1 с истиной + temporal-интервал
+            top = ranked[0]; ok = top["individual_id"] == reveal_iid
+            qd, md = svc.date_of(exclude), svc.date_of(top["best_frame"])
+            mo = ""
+            try:
+                if qd and md:
+                    d = abs((int(qd[:4]) - int(md[:4])) * 12 + int(qd[5:7]) - int(md[5:7]))
+                    mo = f" спустя {d} мес" if d else " (тот же месяц)"
+            except Exception:
+                pass
+            (st.success if ok else st.error)(
+                f"{'✓ Верно' if ok else '✗ Мимо'}: истинная особь {reveal_iid} → top-1 {top['individual_id']}"
+                + (f"; узнана по снимку {md}{mo} — это и есть temporal re-id" if ok and md else ""))
+
+        if source.startswith("Загрузить"):        # демо флоу учёта: регистрация новой особи (в сессии, без БД)
+            with st.expander("➕ Зарегистрировать эту особь в базе (демо флоу учёта новых особей)"):
+                st.caption("Так выглядит учёт: если особи нет в базе (вердикт «новая») — оператор регистрирует её. "
+                           "Здесь особь добавляется в каталог на время сессии (в проде — запись в БД SQLite→PostgreSQL). "
+                           "После регистрации загрузите ДРУГОЙ снимок этой особи — система её узнает.")
+                nm = st.text_input("Имя / ID особи", value=f"NEW-{len(st.session_state.get('_reg', [])) + 1}",
+                                   key="reg_nm")
+                if st.button("Зарегистрировать в базе", key="reg_go"):
+                    info = svc.register(query_crop, query_feat, nm)
+                    st.session_state.setdefault("_reg", []).append(info["individual_id"])
+                    st.success(f"✅ Особь **{info['individual_id']}** добавлена в каталог (известных особей: "
+                               f"{svc.n_individuals}). Теперь загрузите её ДРУГОЙ снимок — система узнает её.")
 
         st.subheader(f"Top-{len(ranked)} похожих особей")
         per_row = 4
@@ -149,7 +176,7 @@ with tab_ind:
         st.markdown("##### 🔬 Проверка перепоимки: поздний снимок → ищем особь по РАННИМ")
         late = rows[rows.date == dates[-1]].iloc[0]
         early = rows[rows.date == dates[0]].iloc[0]
-        ranked = svc.rank(svc.feats[late.frame_id], topk=3, exclude_frame=late.frame_id)
+        ranked = svc.rank(svc.feats[late.frame_id], topk=3, exclude_frame=svc.session_of(late.frame_id))
         hit = bool(ranked) and ranked[0]["individual_id"] == sel
         inl = svc.pair_score(late.frame_id, early.frame_id)
         try:
