@@ -1,0 +1,8 @@
+{
+  "lo": 8.0,
+  "hi": 41.0,
+  "method": "maxpool_temporal_protocol",
+  "n_genuine": 59,
+  "n_impostor": 59,
+  "note": "lo=P90(impostor max-pool), hi=P80(genuine max-pool) под демо-протоколом (сессия запроса исключена)"
+}

@@ -75,10 +75,19 @@ class ReIDService:
 
     # ───────────── калибровка «уверенности» (как в 3.0-демо, но на inlier-скорах) ─────────────
     def _calibrate(self, max_pairs: int = 500):
-        """(lo, hi) для шкалы уверенности: lo = 90-й перцентиль impostor-скоров (разные особи),
-        hi = 75-й перцентиль genuine-скоров МЕЖСЕССИОННЫХ (temporal) пар одной особи. Демо всегда матчит по
-        снимкам ДРУГИХ месяцев (сессия запроса исключена), поэтому шкала якорится на том же режиме, а не на
-        near-dup одного дня (иначе известная особь спустя месяц читалась бы как «новая»). Своя → высокая, чужая → низкая."""
+        """(lo, hi) шкалы уверенности. Источник — backend/calib.json (посчитан build_calibration.py на
+        MAX-POOL скорах под демо-протоколом: lo=P90 impostor, hi=P80 genuine — ровно та величина, что видна
+        в карточке, поэтому уверенность РАСПРЕДЕЛЕНА по шкале, а не липнет к потолку 99 % (см. QA-ревью). Не
+        трогает ранг/KPI 0.79 — только отображаемый %.) Fallback (нет файла) — попарная межсессионная оценка
+        (даёт заниженный hi, т.к. попарный скор ≠ max-pool → 99 % становится модальным)."""
+        cf = HERE / "calib.json"
+        if cf.exists():
+            try:
+                import json
+                c = json.loads(cf.read_text())
+                return float(c["lo"]), float(c["hi"])
+            except Exception:
+                pass
         import random
         rng = random.Random(42)
         by_ind: dict = {}
@@ -252,12 +261,13 @@ class ReIDService:
                 for fid, iid in self.samples]
 
     def identify_sample(self, frame_id: str, topk: int = 5) -> dict:
-        """Демо-прогон: существующий probe-кадр как запрос (исключён из каталога), с раскрытием истинной особи."""
+        """Демо-прогон: существующий probe-кадр как запрос (исключается ВСЯ его съёмочная сессия из каталога —
+        честный temporal, как в Streamlit-демо), с раскрытием истинной особи."""
         row = self.cat[self.cat.frame_id == frame_id]
         if row.empty:
             raise KeyError(frame_id)
         true_iid = row.iloc[0].individual_id
-        out = self.identify_crop(self.imgs[frame_id], topk, exclude_frame=frame_id)
+        out = self.identify_crop(self.imgs[frame_id], topk, exclude_frame=self.session_of(frame_id))
         out["meta"] = {"sample": frame_id, "true_individual": true_iid,
                        "top1_correct": bool(out["results"] and out["results"][0]["individual_id"] == true_iid)}
         return out
