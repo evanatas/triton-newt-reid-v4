@@ -76,27 +76,31 @@ class ReIDService:
     # ───────────── калибровка «уверенности» (как в 3.0-демо, но на inlier-скорах) ─────────────
     def _calibrate(self, max_pairs: int = 500):
         """(lo, hi) для шкалы уверенности: lo = 90-й перцентиль impostor-скоров (разные особи),
-        hi = 75-й перцентиль genuine-скоров (одна особь). Своя → ~99 %, чужая/новая → низкая, без сатурации."""
+        hi = 75-й перцентиль genuine-скоров МЕЖСЕССИОННЫХ (temporal) пар одной особи. Демо всегда матчит по
+        снимкам ДРУГИХ месяцев (сессия запроса исключена), поэтому шкала якорится на том же режиме, а не на
+        near-dup одного дня (иначе известная особь спустя месяц читалась бы как «новая»). Своя → высокая, чужая → низкая."""
         import random
         rng = random.Random(42)
         by_ind: dict = {}
         for _, r in self.cat.iterrows():
-            by_ind.setdefault(r.individual_id, []).append(r.frame_id)
+            by_ind.setdefault(r.individual_id, []).append((r.frame_id, r.date))
         gen, imp = [], []
-        for fids in by_ind.values():                      # genuine: пары внутри особи
-            for a in range(len(fids)):
-                for b in range(a + 1, len(fids)):
-                    gen.append(D.verify(*self.sift.matched(self.feats[fids[a]], self.feats[fids[b]]), DEFORM))
+        for items in by_ind.values():                     # genuine: ТОЛЬКО межсессионные (temporal) пары (разные
+            for a in range(len(items)):                   # даты) — тот же режим, что в демо (сессия запроса исключена)
+                for b in range(a + 1, len(items)):
+                    da, db = items[a][1], items[b][1]
+                    if pd.isna(da) or pd.isna(db) or da == db:   # тот же день/сессия или нет даты → пропускаем
+                        continue
+                    gen.append(D.verify(*self.sift.matched(self.feats[items[a][0]], self.feats[items[b][0]]), DEFORM))
             if len(gen) >= max_pairs:
                 break
         inds = list(by_ind)
         while len(imp) < max_pairs and len(inds) > 1:     # impostor: случайные пары разных особей
             i, j = rng.sample(inds, 2)
-            imp.append(D.verify(*self.sift.matched(self.feats[rng.choice(by_ind[i])],
-                                                   self.feats[rng.choice(by_ind[j])]), DEFORM))
+            imp.append(D.verify(*self.sift.matched(self.feats[rng.choice(by_ind[i])[0]],
+                                                   self.feats[rng.choice(by_ind[j])[0]]), DEFORM))
         gen = np.array(gen or [1.0]); imp = np.array(imp or [0.0])
-        # lo = высокий impostor (уровень «похожего чужого»); hi = типичный genuine (75-й перцентиль, НЕ хвост
-        # near-dup пар с 200+ inlier — иначе умеренные истинные матчи читались бы заниженно).
+        # lo = высокий impostor (уровень «похожего чужого»); hi = типичный МЕЖСЕССИОННЫЙ (temporal) genuine (P75).
         lo = float(np.percentile(imp, 90)); hi = float(np.percentile(gen, 75))
         return (lo, hi) if hi > lo else (lo, lo + 1.0)
 

@@ -115,9 +115,18 @@ with tab_id:
                     mo = f" спустя {d} мес" if d else " (тот же месяц)"
             except Exception:
                 pass
-            (st.success if ok else st.error)(
-                f"{'✓ Верно' if ok else '✗ Мимо'}: истинная особь {reveal_iid} → top-1 {top['individual_id']}"
-                + (f"; узнана по снимку {md}{mo}" if ok and md else ""))
+            if not ok:
+                st.error(f"✗ Мимо: истинная особь {reveal_iid}, а top-1 = {top['individual_id']}.")
+            elif v["verdict"] == "known":
+                st.success(f"✓ Узнана как **{reveal_iid}**"
+                           + (f" по снимку {md}{mo}" if md else "") + " — ранг верный, уверенность высокая.")
+            else:
+                st.info(f"Ранг верный: top-1 = **{reveal_iid}** — истинная особь"
+                        + (f", снимок {md}{mo}" if md else "")
+                        + f". Точность top-1 считается по рангу, а не по уверенности; здесь уверенность "
+                        + f"невысокая ({v['confidence']:.0f}%), поэтому вердикт — "
+                        + f"«{'на проверку' if v['verdict'] == 'review' else 'новая'}»: трудный случай перепоимки "
+                        + "(узор растянулся между съёмками), финальное слово за оператором.")
 
         if source.startswith("Загрузить"):        # демо флоу учёта: регистрация новой особи (в сессии, без БД)
             with st.expander("➕ Зарегистрировать эту особь в базе (демо флоу учёта новых особей)"):
