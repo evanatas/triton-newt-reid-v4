@@ -57,21 +57,6 @@
       "file": "same_TK-009_1mo_8inl.jpg"
     }
   ],
-  "cross": [
-    {
-      "gallery": "TK-004",
-      "probe": "TK-027",
-      "matched": 15,
-      "inliers": 4,
-      "file": "cross_TK-004_vs_TK-027_4inl.jpg"
-    },
-    {
-      "gallery": "TK-027",
-      "probe": "TK-004",
-      "matched": 6,
-      "inliers": 3,
-      "file": "cross_TK-027_vs_TK-004_3inl.jpg"
-    }
-  ],
-  "note": "зелёные=affine-inliers (ядро); серые=отклонённые Lowe-матчи; dev"
+  "cross": [],
+  "note": "зелёные = инлайеры аффинной модели ядра (по их числу решение); левый кадр выровнен по этой модели, правый не тронут; отклонённые матчи скрыты; dev"
 }

@@ -13,6 +13,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 
 HERE = Path(__file__).parent
 for _p in ("..", "../segment", "../registry", "../spike_lab"):
@@ -25,7 +26,7 @@ import eval_core as EC                            # noqa: E402
 CROPS = (HERE / ".." / "segment").resolve()
 OUT = HERE / "artifacts" / "interpret"
 DEFORM = "affine"
-N_SAME, N_CROSS = 8, 2
+N_SAME, N_CROSS = 8, 0   # cross-плитки убраны из фигуры: зелёные «совпадения» у разных особей путали (контраст 20 vs 3–4 — словами в §3.8)
 
 
 def load_img(crop_path):
@@ -59,6 +60,106 @@ def montage(canvases, w=760):
         rows.append(cv2.resize(c, (w, h)))
         rows.append(np.full((3, w, 3), 60, np.uint8))            # разделитель
     return np.vstack(rows[:-1]) if rows else None
+
+
+# ───────────────────── премиум-рендер: выравнивание по аффинной модели ядра ─────────────────────
+_FONT_CACHE: dict = {}
+
+
+def _font(sz):
+    if sz not in _FONT_CACHE:
+        import matplotlib.font_manager as fm
+        _FONT_CACHE[sz] = ImageFont.truetype(fm.findfont("DejaVu Sans"), sz)
+    return _FONT_CACHE[sz]
+
+
+def _text(bgr, text, xy, sz=20, color=(240, 240, 240)):
+    """Кириллица на BGR-картинке через PIL (cv2.putText кириллицу не умеет). color — в RGB."""
+    img = Image.fromarray(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
+    ImageDraw.Draw(img).text(xy, text, font=_font(sz), fill=tuple(color))
+    return cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+
+
+def _affine_from_inliers(pa, pb, mask, thr=5.0):
+    """Аффинная модель ядра (та же estimateAffine2D), оценённая по инлайерам, — для выравнивания кадра.
+    Дисплей-only: метрику/score не трогает."""
+    a, b = np.float32(np.asarray(pa)[mask]), np.float32(np.asarray(pb)[mask])
+    if len(a) < 3:
+        return None
+    M, _ = cv2.estimateAffine2D(a, b, method=cv2.RANSAC, ransacReprojThreshold=thr)
+    return M
+
+
+ACCENT = (60, 220, 70)   # BGR — зелёный
+
+
+def draw_pair_aligned(imgA, imgB, pa, pb, mask, M, title):
+    """Левая панель — gallery A, выровненная аффинной моделью ядра в кадр probe B; правая — B (не тронут).
+    Инлайеры рисуются как почти горизонтальные зелёные связи между ОДНИМИ пятнами; отклонённые скрыты.
+    M=None (напр. разные особи) → левый кадр показывается без выравнивания."""
+    hB, wB = imgB.shape[:2]
+    bB = cv2.cvtColor(imgB, cv2.COLOR_RGB2BGR)
+    aB = cv2.cvtColor(imgA, cv2.COLOR_RGB2BGR)
+    pa = np.asarray(pa, np.float32)
+    if M is not None:
+        c0 = imgA[2, 2]                                   # цвет фона кропа → заливка полей варпа (без тёмных углов)
+        wA = cv2.warpAffine(aB, M, (wB, hB), flags=cv2.INTER_LINEAR,
+                            borderValue=(int(c0[2]), int(c0[1]), int(c0[0])))
+        paL = (pa @ M[:, :2].T) + M[:, 2]
+    elif aB.shape[:2] != (hB, wB):
+        paL = pa * np.float32([wB / aB.shape[1], hB / aB.shape[0]])
+        wA = cv2.resize(aB, (wB, hB))
+    else:
+        wA, paL = aB, pa
+    TB, GAP = 30, 10
+    off = wB + GAP
+    cv = np.full((hB + TB, wB + GAP + wB, 3), 24, np.uint8)
+    cv[TB:TB + hB, :wB] = wA
+    cv[TB:TB + hB, off:off + wB] = bB
+    ov = cv.copy()
+    for (xa, ya), (xb, yb), inl in zip(paL, np.asarray(pb), mask):
+        if not inl:
+            continue
+        pA = (int(round(float(xa))), int(round(float(ya))) + TB)
+        pB = (int(round(float(xb))) + off, int(round(float(yb))) + TB)
+        cv2.line(ov, pA, pB, ACCENT, 2, cv2.LINE_AA)
+        cv2.circle(ov, pA, 3, ACCENT, -1, cv2.LINE_AA)
+        cv2.circle(ov, pB, 3, ACCENT, -1, cv2.LINE_AA)
+    cv = cv2.addWeighted(ov, 0.82, cv, 0.18, 0)
+    return _text(cv, title, (8, 6), 19, (245, 245, 245))
+
+
+def legend_strip(w):
+    s = np.full((58, w, 3), 18, np.uint8)
+    cv2.line(s, (16, 24), (56, 24), ACCENT, 3, cv2.LINE_AA)
+    cv2.circle(s, (16, 24), 4, ACCENT, -1, cv2.LINE_AA)
+    cv2.circle(s, (56, 24), 4, ACCENT, -1, cv2.LINE_AA)
+    s = _text(s, "зелёные — инлайеры аффинной модели ядра (по их числу принимается решение)", (70, 6), 17, (235, 235, 235))
+    s = _text(s, "левый кадр выровнен по модели → связи горизонтальны; отклонённые матчи скрыты", (16, 32), 14, (175, 175, 175))
+    return s
+
+
+def stack_before_after(imgA, imgB, pa, pb, mask, M, iid, interval):
+    """Бонус-плитка: до (сырые SIFT-соответствия, диагонали) → после (выравнивание, инлайеры на одних пятнах)."""
+    raw = draw_pair(imgA, imgB, pa, pb, mask, "")
+    ali = draw_pair_aligned(imgA, imgB, pa, pb, mask, M, f"{iid} · {interval} мес · после выравнивания по аффинной модели ядра")
+    W = max(raw.shape[1], ali.shape[1])
+
+    def pad(im):
+        if im.shape[1] == W:
+            return im
+        out = np.full((im.shape[0], W, 3), 24, np.uint8)
+        out[:, :im.shape[1]] = im
+        return out
+
+    def bar(txt, color):
+        return _text(np.full((28, W, 3), 24, np.uint8), txt, (8, 5), 16, color)
+
+    sep = np.full((6, W, 3), 60, np.uint8)
+    return np.vstack([bar("До: сырые соответствия SIFT — часть ложных, узор в разной позе", (215, 215, 215)),
+                      pad(raw), sep,
+                      bar("После: выравнивание по аффинной модели ядра — инлайеры ложатся на одни пятна брюшка", (185, 225, 195)),
+                      pad(ali)])
 
 
 def main():
@@ -114,27 +215,34 @@ def main():
             cross.append({"g": g, "p": p, "matched": len(pa), "inl": int(mask.sum()),
                           "pa": pa, "pb": pb, "mask": mask})
 
-    index = {"same": [], "cross": [], "note": "зелёные=affine-inliers (ядро); серые=отклонённые Lowe-матчи; dev"}
-    canv = []
-    for s in sel:
-        t = f"SAME {s['iid']} {s['interval']}mo | matched={s['matched']} inliers={s['inl']}"
-        c = draw_pair(load_img(s["g"].crop_path), load_img(s["p"].crop_path), s["pa"], s["pb"], s["mask"], t)
+    index = {"same": [], "cross": [],
+             "note": "зелёные = инлайеры аффинной модели ядра (по их числу решение); левый кадр выровнен по этой модели, правый не тронут; отклонённые матчи скрыты; dev"}
+    tiles = []
+    for k, s in enumerate(sel):
+        imgA, imgB = load_img(s["g"].crop_path), load_img(s["p"].crop_path)
+        Aff = _affine_from_inliers(s["pa"], s["pb"], s["mask"])
+        t = f"{s['iid']} · {s['interval']} мес · инлайеров {s['inl']} из {s['matched']}"
+        c = draw_pair_aligned(imgA, imgB, s["pa"], s["pb"], s["mask"], Aff, t)
         fn = OUT / f"same_{s['iid']}_{s['interval']}mo_{s['inl']}inl.jpg"
-        cv2.imwrite(str(fn), c); canv.append(c)
+        cv2.imwrite(str(fn), c); tiles.append(c)
         index["same"].append({"iid": s["iid"], "interval_mo": s["interval"], "matched": s["matched"],
                               "inliers": s["inl"], "file": fn.name})
         print(f"  SAME {s['iid']} {s['interval']}мес: matched={s['matched']} inliers={s['inl']} -> {fn.name}")
+        if k == 0:
+            ba = stack_before_after(imgA, imgB, s["pa"], s["pb"], s["mask"], Aff, s["iid"], s["interval"])
+            cv2.imwrite(str(OUT / "interpret_before_after.jpg"), ba)
     for cr in cross:
-        t = f"CROSS {cr['g'].individual_id}->{cr['p'].individual_id} | matched={cr['matched']} inliers={cr['inl']}"
-        c = draw_pair(load_img(cr["g"].crop_path), load_img(cr["p"].crop_path), cr["pa"], cr["pb"], cr["mask"], t)
+        imgA, imgB = load_img(cr["g"].crop_path), load_img(cr["p"].crop_path)
+        t = f"разные особи · {cr['g'].individual_id} → {cr['p'].individual_id} · инлайеров {cr['inl']} из {cr['matched']} (без выравнивания)"
+        c = draw_pair_aligned(imgA, imgB, cr["pa"], cr["pb"], cr["mask"], None, t)
         fn = OUT / f"cross_{cr['g'].individual_id}_vs_{cr['p'].individual_id}_{cr['inl']}inl.jpg"
-        cv2.imwrite(str(fn), c); canv.append(c)
+        cv2.imwrite(str(fn), c); tiles.append(c)
         index["cross"].append({"gallery": cr["g"].individual_id, "probe": cr["p"].individual_id,
                                "matched": cr["matched"], "inliers": cr["inl"], "file": fn.name})
         print(f"  CROSS {cr['g'].individual_id}->{cr['p'].individual_id}: matched={cr['matched']} inliers={cr['inl']} -> {fn.name}")
 
-    m = montage(canv)
-    if m is not None:
+    if tiles:
+        m = montage([legend_strip(tiles[0].shape[1])] + tiles, w=900)
         cv2.imwrite(str(OUT / "interpret_montage.jpg"), m)
     (OUT / "interpret_index.json").write_text(json.dumps(index, ensure_ascii=False, indent=2))
     same_inl = [s["inl"] for s in sel]; cross_inl = [c["inl"] for c in cross]
