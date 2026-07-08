@@ -3,7 +3,7 @@
 Ядро НЕ трогается — только замер времени вызовов замороженного пайплайна:
   сегментация (BiRefNet → маска метки → tight_crop) · SIFT-extract · матч+affine-verify на 1 реф ·
   полный запрос identify по каталогу (276 кадров).
-Вход — готовые демо-фото (демо_фото/01_известные). Результат → core/artifacts/latency_bench.json.
+Вход — готовые фото (демо_фото/01_известные, иначе examples/). Результат → core/artifacts/latency_bench.json.
 Запуск: cd "triton 4.0" && PYTORCH_ENABLE_MPS_FALLBACK=1 /opt/anaconda3/bin/python backend/benchmark_latency.py
 """
 from __future__ import annotations
@@ -35,10 +35,10 @@ def main():
     svc = RS.ReIDService("TK")
     n_refs = len(svc.cat)
 
-    raws = [r for r in sorted(glob.glob(str(ROOT / "демо_фото" / "01_известные" / "*")))
-            if r.lower().endswith((".jpg", ".jpeg", ".png"))][:30]
+    src = glob.glob(str(ROOT / "демо_фото" / "01_известные" / "*")) or glob.glob(str(ROOT / "examples" / "*"))
+    raws = [r for r in sorted(src) if r.lower().endswith((".jpg", ".jpeg", ".png"))][:30]
     if not raws:
-        raise SystemExit("нет демо-фото в демо_фото/01_известные/")
+        raise SystemExit("нет фото в демо_фото/01_известные/ или examples/")
 
     # разогрев (загрузка весов BiRefNet — не входит в статистику)
     with open(raws[0], "rb") as f:

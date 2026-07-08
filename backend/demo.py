@@ -55,8 +55,8 @@ with tab_id:
         query_feat = svc.feats[fid]
         exclude = fid
     else:
-        up = st.file_uploader("Фото брюшка (JPG/PNG) — held-out примеры в папке демо_фото/ "
-                              "(01_известные / 02_новые_особи)", type=["jpg", "jpeg", "png"])
+        up = st.file_uploader("Фото брюшка (JPG/PNG) — примеры в папке examples/",
+                              type=["jpg", "jpeg", "png"])
         is_crop = st.checkbox("Это уже готовый кроп брюшка (не запускать сегментацию)", value=False)
         if up is not None:
             import hashlib
@@ -221,5 +221,5 @@ with tab_about:
     )
     st.caption("Стек: Python · OpenCV (SIFT/RANSAC) · BiRefNet (сегментация) · PyTorch/MPS · Streamlit. "
                "Каталог демо = TK-кропы известных особей в памяти (open_new исключены; БД — следующий этап); "
-               "held-out фото — `демо_фото/`. Метрики — `core/core_config.json`, "
+               "примеры для загрузки — `examples/`. Метрики — `core/core_config.json`, "
                "`РЕЗУЛЬТАТ_ФИНАЛ_sealed.md`.")
