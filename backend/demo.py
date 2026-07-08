@@ -100,16 +100,9 @@ with tab_id:
         else:
             st.error(f"🔴 Вероятно НОВАЯ особь · макс. уверенность {v['confidence']:.0f}% — ни один кандидат "
                      f"не набрал достаточного сходства (кандидат на регистрацию).")
-        st.caption("«Уверенность» — калиброванная монотонная шкала (НЕ вероятность): своя особь → высокая, "
-                   "чужая/новая → низкая. Надёжный сигнал — РАНЖИР top-1/top-5 (на нём sealed-KPI 0.79). "
-                   "Вердикт **известна / на проверку / новая** — в шкале уверенности (UX-подушка human-in-the-loop); "
-                   "метрический open-set меряется отдельно в affine-inliers (порог 9, sealed BAKS 0.67 / G 0.819, "
-                   "within-TK). Две шкалы не смешивать.")
-        if exclude:
-            st.caption(f"ℹ️ Честный temporal-тест: из каталога исключён не только сам кадр ({exclude}), но и "
-                       f"ВСЯ его съёмочная сессия ({len(excl)} кадров того же дня) — узнавание идёт по снимкам "
-                       f"ДРУГИХ месяцев, а не по почти-дубликату того же дня.")
-
+        st.caption("«Уверенность» — вспомогательная шкала (не вероятность): у своей особи выше, у чужой или "
+                   "новой ниже. Основной сигнал — место в ранжире (top-1/top-5); вердикт «известна / на проверку / "
+                   "новая» подсказывает оператору, когда нужна ручная проверка.")
         rev = svc.cat[svc.cat.frame_id == exclude] if exclude else None
         reveal_iid = true_id or (rev.iloc[0].individual_id if rev is not None and not rev.empty else None)
         if reveal_iid:                                # открытая сверка top-1 с истиной + temporal-интервал
@@ -124,7 +117,7 @@ with tab_id:
                 pass
             (st.success if ok else st.error)(
                 f"{'✓ Верно' if ok else '✗ Мимо'}: истинная особь {reveal_iid} → top-1 {top['individual_id']}"
-                + (f"; узнана по снимку {md}{mo} — это и есть temporal re-id" if ok and md else ""))
+                + (f"; узнана по снимку {md}{mo}" if ok and md else ""))
 
         if source.startswith("Загрузить"):        # демо флоу учёта: регистрация новой особи (в сессии, без БД)
             with st.expander("➕ Зарегистрировать эту особь в базе (демо флоу учёта новых особей)"):
@@ -191,8 +184,8 @@ with tab_ind:
         c1, c2 = st.columns(2)
         c1.image(svc.imgs[early.frame_id], caption=f"ранний · {dates[0]}", width="stretch")
         c2.image(svc.imgs[late.frame_id], caption=f"поздний · {dates[-1]} (запрос)", width="stretch")
-        st.caption("Это и есть temporal re-id: узор пятен растянулся между съёмками, но ядро (SIFT+affine) "
-                   "матчит особь по совпавшим пятнам. На этом стоит sealed-KPI 0.79.")
+        st.caption("Поздний снимок опознан по более раннему: индивидуальный узор пятен сохраняется "
+                   "между съёмками разных месяцев.")
 
 # ═══════════════ ВКЛАДКА: О СИСТЕМЕ ═══════════════
 with tab_about:
