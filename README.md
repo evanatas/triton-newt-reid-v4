@@ -161,10 +161,10 @@ cd ../core   && python eval_core.py --cohort TK                     # оценк
 
 ## 📜 Лицензии
 
-- **Код** — [AGPL-3.0-or-later](LICENSE).
+- **Код** — [MIT](LICENSE) — permissive: свободно использовать, изменять и встраивать, в том числе в закрытых продуктах.
 - **Данные тритонов (TK/PW/LAB)** — предоставлены Институтом проблем экологии и эволюции им. А. Н. Северцова
   РАН для исследовательского использования; условия — в [`DATA_USE.md`](DATA_USE.md).
-- Внешний набор **GCN-ID** — CC-BY-4.0 (Zenodo). Модель **BiRefNet** — из HuggingFace Hub (`ZhengPeng7/BiRefNet`).
+- Внешний набор **GCN-ID** — CC-BY-4.0 (Zenodo). Модель **BiRefNet** (MIT) — из HuggingFace Hub (`ZhengPeng7/BiRefNet`).
 
 ---
 
