@@ -177,14 +177,17 @@ class ReIDService:
     def _load(self, crop_path: str) -> np.ndarray:
         return cv2.cvtColor(cv2.imread(str(SEG_DIR / crop_path)), cv2.COLOR_BGR2RGB)
 
-    def segment_upload(self, image_bytes: bytes):
-        """Сырое фото → RGB → BiRefNet → маскирование метки → tight_crop (frozen-пайплайн)."""
-        img = np.array(Image.open(io.BytesIO(image_bytes)).convert("RGB"))
+    def segment_rgb(self, img: np.ndarray):
+        """RGB-массив → BiRefNet → маскирование метки → tight_crop (frozen-пайплайн). Возвращает (crop, meta)."""
         m, seg, frac = body_mask(img)
         lbl, has = detect_label(img, m)
         img2, m2 = apply_label_mask(img, m, lbl)
         crop = tight_crop(img2, m2)
         return crop, {"seg_method": seg, "mask_frac": round(float(frac), 3), "has_label": bool(has)}
+
+    def segment_upload(self, image_bytes: bytes):
+        """Сырое фото (байты) → RGB → segment_rgb (frozen-пайплайн)."""
+        return self.segment_rgb(np.array(Image.open(io.BytesIO(image_bytes)).convert("RGB")))
 
     def frame_for_md5(self, image_bytes: bytes):
         """frame_id каталога с тем же md5, что загруженный файл (анти-самосовпадение при загрузке held-out) или None."""
@@ -214,7 +217,14 @@ class ReIDService:
         """Демо флоу учёта: добавить особь/кадр в каталог В ПАМЯТИ (без БД) — становится «известной» до конца
         сессии. В проде здесь была бы запись кропа+фич+метаданных в БД (SQLite→PostgreSQL)."""
         n = sum(1 for f in self.imgs if str(f).startswith("REG-")) + 1
-        fid, iid = f"REG-{n:03d}", (str(name).strip() or f"NEW-{n}")
+        fid = f"REG-{n:03d}"
+        iid = str(name).strip() or f"NEW-{n}"
+        existing = set(self.cat.individual_id)          # не сливать разные регистрации под одним именем
+        if iid in existing:
+            k = 2
+            while f"{iid} ({k})" in existing:
+                k += 1
+            iid = f"{iid} ({k})"
         self.imgs[fid] = crop
         self.feats[fid] = feat
         row = {c: "" for c in self.cat.columns}
